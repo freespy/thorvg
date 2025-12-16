@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Configure (CMake)
+    - name: Configure ThorVG
       shell: pwsh
       run: |
         cmake -S . -B build `
@@ -18,7 +18,7 @@ jobs:
           -DTHORVG_BUILD_SAMPLES=OFF `
           -DTHORVG_BUILD_TOOLS=ON
 
-    - name: Build
+    - name: Build ThorVG tools
       shell: pwsh
       run: |
         cmake --build build --config Release
