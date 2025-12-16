@@ -1,30 +1,45 @@
 name: Build lottie2gif (Windows)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout source
+      uses: actions/checkout@v4
 
-    - name: Configure ThorVG
-      shell: pwsh
-      run: |
-        cmake -S . -B build `
-          -DTHORVG_LOTTIE_LOADER_SUPPORT=ON `
-          -DTHORVG_BUILD_SAMPLES=OFF `
-          -DTHORVG_BUILD_TOOLS=ON
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >
+          git
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-meson
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-pkg-config
 
-    - name: Build ThorVG tools
-      shell: pwsh
+    - name: Configure (Meson)
+      shell: msys2 {0}
       run: |
-        cmake --build build --config Release
+        meson setup build \
+          -Dtools=true \
+          -Dlottie_loader=true \
+          --buildtype=release
+
+    - name: Build
+      shell: msys2 {0}
+      run: |
+        ninja -C build
 
     - name: Upload lottie2gif.exe
       uses: actions/upload-artifact@v4
       with:
         name: lottie2gif-windows
-        path: build/tools/lottie2gif/Release/lottie2gif.exe
+        path: build/tools/lottie2gif/lottie2gif.exe
