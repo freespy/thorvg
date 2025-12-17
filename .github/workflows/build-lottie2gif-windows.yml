@@ -20,32 +20,29 @@ jobs:
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-libpng
             mingw-w64-x86_64-giflib
+            coreutils  # 增加 head、find 等工具
 
       - name: Configure (Meson)
-        shell: msys2 {0}
+        shell: bash
         run: |
-          meson setup build -Dtools=lottie2gif --buildtype=release
+          meson setup build --buildtype=release
 
       - name: Build
-        shell: msys2 {0}
+        shell: bash
         run: |
           ninja -C build
 
       - name: Find lottie2gif.exe
-        shell: msys2 {0}
+        shell: bash
         run: |
           echo "Searching for lottie2gif.exe..."
-          find build -name "lottie2gif.exe" || true
-
-      - name: Collect artifact
-        shell: msys2 {0}
-        run: |
-          mkdir -p artifact
-          exe=$(find build -name "lottie2gif.exe" | head -n 1)
+          exe=$(find build -type f -name "lottie2gif.exe" | head -n 1)
           if [ -z "$exe" ]; then
             echo "lottie2gif.exe not found!"
             exit 1
           fi
+          echo "Found: $exe"
+          mkdir -p artifact
           cp "$exe" artifact/
 
       - name: Upload artifact
@@ -53,4 +50,3 @@ jobs:
         with:
           name: lottie2gif-windows
           path: artifact/lottie2gif.exe
-
