@@ -31,8 +31,26 @@ jobs:
         run: |
           ninja -C build
 
+      - name: Find lottie2gif.exe
+        shell: msys2 {0}
+        run: |
+          echo "Searching for lottie2gif.exe..."
+          find build -name "lottie2gif.exe" || true
+
+      - name: Collect artifact
+        shell: msys2 {0}
+        run: |
+          mkdir -p artifact
+          exe=$(find build -name "lottie2gif.exe" | head -n 1)
+          if [ -z "$exe" ]; then
+            echo "lottie2gif.exe not found!"
+            exit 1
+          fi
+          cp "$exe" artifact/
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lottie2gif-windows
-          path: build/tools/lottie2gif/lottie2gif.exe
+          path: artifact/lottie2gif.exe
+
