@@ -29,9 +29,10 @@ jobs:
       shell: msys2 {0}
       run: |
         meson setup build \
-          -Dtools=true \
+          -Dtools=lottie2gif \
           -Dlottie_loader=true \
           --buildtype=release
+
 
     - name: Build
       shell: msys2 {0}
