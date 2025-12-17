@@ -8,8 +8,11 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # 1️⃣ Checkout 源码
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      # 2️⃣ 安装 MSYS2 + 必要工具
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
@@ -22,30 +25,41 @@ jobs:
             mingw-w64-x86_64-giflib
             coreutils
 
-      - name: Configure (Meson)
+      # 3️⃣ Meson 配置
+      - name: Configure build (Meson)
         shell: msys2 {0}
         run: |
           meson setup build -Dtools=lottie2gif --buildtype=release
 
-      - name: Build
+      # 4️⃣ 编译
+      - name: Build (Ninja)
         shell: msys2 {0}
         run: |
           ninja -C build
 
-      - name: Find and copy lottie2gif.exe
+      # 5️⃣ 调试：列出 build 目录（可选）
+      - name: List build folder
         shell: msys2 {0}
         run: |
-          exe=$(find build -type f -name "lottie2gif.exe" | head -n 1)
+          echo "Listing build directory:"
+          ls -R build
+
+      # 6️⃣ 找到 tvg-lottie2gif.exe 并复制到 artifact
+      - name: Collect tvg-lottie2gif.exe
+        shell: msys2 {0}
+        run: |
+          exe=$(find build -type f -name "tvg-lottie2gif.exe" | head -n 1)
           if [ -z "$exe" ]; then
-            echo "lottie2gif.exe not found!"
+            echo "tvg-lottie2gif.exe not found!"
             exit 1
           fi
           echo "Found: $exe"
           mkdir -p artifact
           cp "$exe" artifact/
 
+      # 7️⃣ 上传 artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lottie2gif-windows
-          path: artifact/lottie2gif.exe
+          path: artifact/tvg-lottie2gif.exe
