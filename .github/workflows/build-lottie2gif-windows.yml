@@ -41,23 +41,47 @@ jobs:
         run: |
           ninja -C build
 
-      # 5️⃣ Debug: 列出 build 目录内容（可选）
+      # 5️⃣ Debug: list build folder (optional)
       - name: List build folder
         shell: msys2 {0}
         run: |
           echo "Listing build directory:"
           ls -R build
 
-      # 6️⃣ 收集所有 exe 文件
+      # 6️⃣ Collect all executables
       - name: Collect all executables
         shell: msys2 {0}
         run: |
-          mkdir -p artifact
-          find build -maxdepth 3 -type f -name "*.exe" -exec cp {} artifact/ \;
+          mkdir -p artifact/bin
+          find build -maxdepth 3 -type f -name "*.exe" -exec cp {} artifact/bin/ \;
 
-      # 7️⃣ 上传 artifact
-      - name: Upload artifact
+      # 7️⃣ Convert Lottie JSON to GIF
+      - name: Convert Lottie JSON to GIF
+        shell: msys2 {0}
+        run: |
+          mkdir -p artifact/gif
+          for file in examples/lottie/*.json; do
+            echo "Processing $file"
+            ./build/tools/lottie2gif/tvg-lottie2gif.exe "$file" -r 240x240 -f 24 -b 000000
+            gif_file="${file%.json}.gif"
+            if [ -f "$gif_file" ]; then
+              cp "$gif_file" artifact/gif/
+              echo "GIF generated: $gif_file"
+            else
+              echo "GIF not generated for $file"
+            fi
+          done
+
+      # 8️⃣ Upload executables
+      - name: Upload executables
         uses: actions/upload-artifact@v4
         with:
           name: thorvg-windows-bins
-          path: artifact/
+          path: artifact/bin/
+
+      # 9️⃣ Upload GIFs
+      - name: Upload GIFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: lottie-gifs
+          path: artifact/gif/
