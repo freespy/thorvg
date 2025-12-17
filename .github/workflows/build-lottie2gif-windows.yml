@@ -20,7 +20,7 @@ jobs:
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-libpng
             mingw-w64-x86_64-giflib
-            coreutils  # 增加 head、find 等工具
+            coreutils
 
       - name: Configure (Meson)
         shell: bash
