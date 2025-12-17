@@ -60,7 +60,7 @@ jobs:
         shell: msys2 {0}
         run: |
           mkdir -p artifact/gif
-          for file in examples/lottie/*.json; do
+          for file in examples/resources/lottie/*.json; do
             echo "Processing $file"
             ./build/tools/lottie2gif/tvg-lottie2gif.exe "$file" -r 240x240 -f 24 -b 000000
             gif_file="${file%.json}.gif"
