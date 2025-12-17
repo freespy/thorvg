@@ -14,7 +14,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: >
+          install: |
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-meson
             mingw-w64-x86_64-ninja
@@ -25,17 +25,19 @@ jobs:
       - name: Configure (Meson)
         shell: bash
         run: |
+          export PATH="/mingw64/bin:$PATH"
           meson setup build --buildtype=release
 
       - name: Build
         shell: bash
         run: |
+          export PATH="/mingw64/bin:$PATH"
           ninja -C build
 
       - name: Find lottie2gif.exe
         shell: bash
         run: |
-          echo "Searching for lottie2gif.exe..."
+          export PATH="/mingw64/bin:$PATH"
           exe=$(find build -type f -name "lottie2gif.exe" | head -n 1)
           if [ -z "$exe" ]; then
             echo "lottie2gif.exe not found!"
