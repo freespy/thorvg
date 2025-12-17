@@ -1,46 +1,38 @@
-name: Build lottie2gif (Windows)
+name: build-lottie2gif
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >
-          git
-          mingw-w64-x86_64-toolchain
-          mingw-w64-x86_64-meson
-          mingw-w64-x86_64-ninja
-          mingw-w64-x86_64-pkg-config
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-libpng
+            mingw-w64-x86_64-giflib
 
-    - name: Configure (Meson)
-      shell: msys2 {0}
-      run: |
-        meson setup build \
-          -Dtools=lottie2gif \
-          -Dlottie_loader=true \
-          --buildtype=release
+      - name: Configure (Meson)
+        shell: msys2 {0}
+        run: |
+          meson setup build -Dtools=lottie2gif --buildtype=release
 
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          ninja -C build
 
-    - name: Build
-      shell: msys2 {0}
-      run: |
-        ninja -C build
-
-    - name: Upload lottie2gif.exe
-      uses: actions/upload-artifact@v4
-      with:
-        name: lottie2gif-windows
-        path: build/tools/lottie2gif/lottie2gif.exe
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lottie2gif-windows
+          path: build/tools/lottie2gif/lottie2gif.exe
