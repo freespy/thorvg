@@ -55,23 +55,6 @@ jobs:
           mkdir -p artifact/bin
           find build -maxdepth 3 -type f -name "*.exe" -exec cp {} artifact/bin/ \;
 
-      # 7️⃣ Convert Lottie JSON to GIF
-      - name: Convert Lottie JSON to GIF
-        shell: msys2 {0}
-        run: |
-          mkdir -p artifact/gif
-          for file in examples/resources/lottie/*.json; do
-            echo "Processing $file"
-            ./build/tools/lottie2gif/tvg-lottie2gif.exe "$file" -r 240x240 -f 24 -b 000000
-            gif_file="${file%.json}.gif"
-            if [ -f "$gif_file" ]; then
-              cp "$gif_file" artifact/gif/
-              echo "GIF generated: $gif_file"
-            else
-              echo "GIF not generated for $file"
-            fi
-          done
-
       # 8️⃣ Upload executables
       - name: Upload executables
         uses: actions/upload-artifact@v4
