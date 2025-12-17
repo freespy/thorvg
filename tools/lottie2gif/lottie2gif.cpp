@@ -1,15 +1,30 @@
 /*
- * ThorVG - Lottie to GIF converter
+ * Copyright (c) 2023 - 2025 the ThorVG project. All rights reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 #include <iostream>
+#include <string.h>
 #include <vector>
 #include <memory>
-#include <string>
-#include <cstring>
-
 #include <thorvg.h>
-
 #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
@@ -29,186 +44,223 @@ using namespace tvg;
 struct App
 {
 private:
-    char full[PATH_MAX]{};
+   char full[PATH_MAX];    //full path
+   uint32_t fps = 30;
+   uint32_t width = 600;
+   uint32_t height = 600;
+   uint8_t r, g, b;        //background color
+   bool background = false;
 
-    uint32_t fps = 30;
-    uint32_t width = 600;
-    uint32_t height = 600;
+   void helpMsg()
+   {
+      cout << "Usage: \n   tvg-lottie2gif [Lottie file] or [Lottie folder] [-r resolution] [-f fps] [-b background color]\n\nExamples: \n    $ tvg-lottie2gif input.json\n    $ tvg-lottie2gif input.json -r 600x600\n    $ tvg-lottie2gif input.json -f 30\n    $ tvg-lottie2gif input.json -r 600x600 -f 30\n    $ tvg-lottie2gif lottiefolder\n    $ tvg-lottie2gif lottiefolder -r 600x600 -f 30 -b fa7410\n\n";
+   }
 
-    uint8_t r = 0, g = 0, b = 0;
-    bool background = false;
+   bool validate(string& lottieName)
+   {
+      string extn = ".json";
+      if (lottieName.size() <= extn.size() || lottieName.substr(lottieName.size() - extn.size()) != extn) {
+         cerr << "Error: \"" << lottieName << "\" is invalid." << endl;
+         return false;
+      }
+      return true;
+   }
 
-    void helpMsg()
-    {
-        cout <<
-            "Usage:\n"
-            "  tvg-lottie2gif <file|dir> [options]\n\n"
-            "Options:\n"
-            "  -r WxH       Resolution (e.g. 240x240)\n"
-            "  -f FPS       Frames per second\n"
-            "  -b RRGGBB    Background color (hex)\n\n"
-            "Examples:\n"
-            "  tvg-lottie2gif input.json\n"
-            "  tvg-lottie2gif input.json -r 240x240 -f 24\n"
-            "  tvg-lottie2gif folder -r 512x512 -b 000000\n";
-    }
+   bool convert(string& in, string& out)
+   {
+      if (Initializer::init() != Result::Success) {
+         cerr << "Error: ThorVG initializer failed." << endl;
+         return false;
+      }
+      bool success = false;
+      {
+         auto animation = Animation::gen();
+         auto picture = animation->picture();
+         if (picture->load(in.c_str()) != Result::Success) {
+            cerr << "Error: Failed to load Lottie file: " << in << endl;
+            return false;
+         }
 
-    bool validate(const string& name)
-    {
-        return name.size() > 5 && name.substr(name.size() - 5) == ".json";
-    }
+         float width_, height_;
+         picture->size(&width_, &height_);
+         float scale = static_cast<float>(this->width) / width_;
+         picture->size(width_ * scale, height_ * scale);
 
-    const char* realPath(const char* path)
-    {
+         auto saver = unique_ptr<Saver>(Saver::gen());
+
+         //set a background color
+         if (background) {
+            auto bg = Shape::gen();
+            bg->fill(r, g, b);
+            bg->appendRect(0, 0, width_ * scale, height_ * scale);
+            saver->background(bg);
+         }
+
+         if (saver->save(animation, out.c_str(), 100, fps) != Result::Success) {
+            cerr << "Error: Failed to save GIF: " << out << endl;
+         } else if (saver->sync() != Result::Success) {
+            cerr << "Error: Saver sync failed: " << out << endl;
+         } else {
+            success = true;
+         }
+      }
+      if (Initializer::term() != Result::Success) {
+         cerr << "Error: ThorVG termination failed." << endl;
+      }
+      return success;
+   }
+
+   void convert(string& lottieName)
+   {
+      auto gifName = lottieName;
+      gifName.replace(gifName.length() - 4, 4, "gif");
+
+      if (convert(lottieName, gifName)) {
+         cout << "Generated Gif file : " << gifName << endl;
+      } else {
+         cerr << "Failed converting: " << lottieName << endl;
+      }
+   }
+
+   const char* realPath(const char* path)
+   {
 #ifdef _WIN32
-        return _fullpath(full, path, PATH_MAX);
+      return _fullpath(full, path, PATH_MAX);
 #else
-        return realpath(path, full);
+      return realpath(path, full);
 #endif
-    }
+   }
 
-    bool isDirectory(const char* path)
-    {
+   bool isDirectory(const char* path)
+   {
 #ifdef _WIN32
-        DWORD attr = GetFileAttributesA(path);
-        return (attr != INVALID_FILE_ATTRIBUTES) &&
-               (attr & FILE_ATTRIBUTE_DIRECTORY);
+      DWORD attr = GetFileAttributes(path);
+      if (attr == INVALID_FILE_ATTRIBUTES) return false;
+      return attr & FILE_ATTRIBUTE_DIRECTORY;
 #else
-        struct stat st{};
-        return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+      struct stat buf;
+      if (stat(path, &buf) != 0) return false;
+      return S_ISDIR(buf.st_mode);
 #endif
-    }
+   }
 
-    bool convertOne(const string& in)
-{
-    string out = in;
-    out.replace(out.size() - 5, 5, ".gif"); // .json -> .gif
-
-    cout << "[INFO] " << in << " -> " << out << endl;
-
-    if (Initializer::init() != Result::Success) {
-        cerr << "[ERROR] ThorVG init failed\n";
-        return false;
-    }
-
-    auto picture = Picture::gen();
-    if (!picture || picture->load(in.c_str()) != Result::Success) {
-        cerr << "[ERROR] Failed to load lottie: " << in << endl;
-        Initializer::term();
-        return false;
-    }
-
-    float vw, vh;
-    picture->size(&vw, &vh);
-    float scale = min(static_cast<float>(width)/vw, static_cast<float>(height)/vh);
-    picture->size(vw * scale, vh * scale);
-
-    auto saver = unique_ptr<Saver>(Saver::gen());
-    if (!saver) {
-        cerr << "[ERROR] GIF saver not enabled\n";
-        Initializer::term();
-        return false;
-    }
-
-    if (background) {
-        auto bg = Shape::gen();
-        bg->fill(r, g, b);
-        bg->appendRect(0, 0, width, height);
-        saver->background(bg);
-    }
-
-    if (saver->save(picture, out.c_str(), 0, fps) != Result::Success ||
-        saver->sync() != Result::Success) 
-    {
-        cerr << "[ERROR] saver->save failed\n";
-        Initializer::term();
-        return false;
-    }
-
-    Initializer::term();
-    cout << "[OK] Generated " << out << endl;
-    return true;
-}
-
-
-    void handlePath(const string& input)
-    {
-        auto path = realPath(input.c_str());
-        if (!path) {
-            cerr << "[ERROR] Invalid path: " << input << endl;
-            return;
+   bool handleDirectory(const string& path)
+   {
+#ifdef _WIN32
+        WIN32_FIND_DATA fd;
+        HANDLE h = FindFirstFileEx((path + "\\*").c_str(), FindExInfoBasic, &fd, FindExSearchNameMatch, NULL, 0);
+        if (h == INVALID_HANDLE_VALUE) {
+            cerr << "Couldn't open directory \"" << path << "\"." << endl;
+            return false;
         }
-
-        if (isDirectory(path)) {
-            cout << "[DIR] " << path << endl;
-#ifdef _WIN32
-            WIN32_FIND_DATAA fd;
-            HANDLE h = FindFirstFileA((string(path) + "\\*").c_str(), &fd);
-            if (h == INVALID_HANDLE_VALUE) return;
-
-            do {
-                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-                string name = fd.cFileName;
-                if (validate(name))
-                    convertOne(string(path) + "\\" + name);
-            } while (FindNextFileA(h, &fd));
-            FindClose(h);
-#else
-            DIR* dir = opendir(path);
-            if (!dir) return;
-            while (auto* e = readdir(dir)) {
-                if (e->d_type != DT_REG) continue;
-                string name = e->d_name;
-                if (validate(name))
-                    convertOne(string(path) + "/" + name);
+        do {
+            if (*fd.cFileName == '.' || *fd.cFileName == '$') continue;
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                string subpath = path + "\\" + fd.cFileName;
+                if (!handleDirectory(subpath)) continue;
+            } else {
+                string lottieName(fd.cFileName);
+                if (!validate(lottieName)) continue;
+                lottieName = path + "\\" + fd.cFileName;
+                convert(lottieName);
             }
-            closedir(dir);
-#endif
-        } else {
-            if (validate(input))
-                convertOne(input);
-            else
-                cerr << "[ERROR] Not a .json file\n";
+        } while (FindNextFile(h, &fd));
+        FindClose(h);
+#else
+        auto dir = opendir(path.c_str());
+        if (!dir) {
+            cerr << "Couldn't open directory \"" << path << "\"." << endl;
+            return false;
         }
+        while (auto entry = readdir(dir)) {
+            if (*entry->d_name == '.' || *entry->d_name == '$') continue;
+            if (entry->d_type == DT_DIR) {
+                string subpath = path + "/" + entry->d_name;
+                if (!handleDirectory(subpath)) continue;
+            } else {
+                string svgName(entry->d_name);
+                if (!validate(svgName)) continue;
+                svgName = path + "/" + entry->d_name;
+                convert(svgName);
+            }
+        }
+#endif
+        return true;
     }
 
 public:
-    int run(int argc, char** argv)
-    {
-        vector<string> inputs;
+   int setup(int argc, char** argv)
+   {
+      vector<const char*> inputs;
 
-        for (int i = 1; i < argc; ++i) {
-            if (argv[i][0] == '-') {
-                if (!strcmp(argv[i], "-r") && i + 1 < argc) {
-                    sscanf(argv[++i], "%ux%u", &width, &height);
-                } else if (!strcmp(argv[i], "-f") && i + 1 < argc) {
-                    fps = atoi(argv[++i]);
-                } else if (!strcmp(argv[i], "-b") && i + 1 < argc) {
-                    uint32_t c = strtoul(argv[++i], nullptr, 16);
-                    r = (c >> 16) & 0xff;
-                    g = (c >> 8) & 0xff;
-                    b = c & 0xff;
-                    background = true;
-                }
+      for (int i = 1; i < argc; ++i) {
+         const char* p = argv[i];
+         if (*p == '-') {
+            const char* p_arg = (i + 1 < argc) ? argv[++i] : nullptr;
+            if (p[1] == 'r') {
+               if (!p_arg) {
+                  cerr << "Error: Missing resolution attribute." << endl;
+                  return 1;
+               }
+               const char* x = strchr(p_arg, 'x');
+               if (x) {
+                  width = atoi(p_arg);
+                  height = atoi(x + 1);
+               }
+               if (!x || width <= 0 || height <= 0) {
+                  cerr << "Error: Resolution (" << p_arg << ") is corrupted." << endl;
+                  return 1;
+               }
+            } else if (p[1] == 'f') {
+               if (!p_arg) {
+                  cerr << "Error: Missing fps value." << endl;
+                  return 1;
+               }
+               fps = atoi(p_arg);
+            } else if (p[1] == 'b') {
+               if (!p_arg) {
+                  cerr << "Error: Missing background color." << endl;
+                  return 1;
+               }
+               auto bgColor = (uint32_t) strtol(p_arg, NULL, 16);
+               r = (uint8_t)((bgColor & 0xff0000) >> 16);
+               g = (uint8_t)((bgColor & 0x00ff00) >> 8);
+               b = (uint8_t)(bgColor & 0x0000ff);
+               background = true;
             } else {
-                inputs.emplace_back(argv[i]);
+               cerr << "Warning: Unknown flag (" << p << ")." << endl;
             }
-        }
+         } else {
+            inputs.push_back(argv[i]);
+         }
+      }
 
-        if (inputs.empty()) {
-            helpMsg();
-            return 0;
-        }
+      if (inputs.empty()) {
+         helpMsg();
+         return 0;
+      }
 
-        for (auto& i : inputs)
-            handlePath(i);
-
-        return 0;
-    }
+      for (auto input : inputs) {
+         auto path = realPath(input);
+         if (!path) {
+            cerr << "Invalid file or path: \"" << input << "\"" << endl;
+            continue;
+         }
+         if (isDirectory(path)) {
+            cout << "Directory: \"" << path << "\"" << endl;
+            if (!handleDirectory(path)) break;
+         } else {
+            string lottieName(input);
+            if (!validate(lottieName)) continue;
+            convert(lottieName);
+         }
+      }
+      return 0;
+   }
 };
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    App app;
-    return app.run(argc, argv);
+   App app;
+   return app.setup(argc, argv);
 }
