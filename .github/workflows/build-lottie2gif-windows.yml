@@ -24,7 +24,6 @@ jobs:
             mingw-w64-x86_64-libpng
             mingw-w64-x86_64-giflib
             coreutils
-
       # 3️⃣ Configure Meson
       - name: Configure build
         shell: msys2 {0}
@@ -34,37 +33,26 @@ jobs:
             -Dsavers=gif \
             -Dloaders=lottie,png,jpg,webp \
             --buildtype=release
-
       # 4️⃣ Build all targets
       - name: Build (Ninja)
         shell: msys2 {0}
         run: |
           ninja -C build
-
-      # 5️⃣ Debug: list build folder (optional)
+      # 5️⃣ Debug: 列出 build 目录内容（可选）
       - name: List build folder
         shell: msys2 {0}
         run: |
           echo "Listing build directory:"
           ls -R build
-
-      # 6️⃣ Collect all executables
+      # 6️⃣ 收集所有 exe 文件
       - name: Collect all executables
         shell: msys2 {0}
         run: |
-          mkdir -p artifact/bin
-          find build -maxdepth 3 -type f -name "*.exe" -exec cp {} artifact/bin/ \;
-
-      # 8️⃣ Upload executables
-      - name: Upload executables
+          mkdir -p artifact
+          find build -maxdepth 3 -type f -name "*.exe" -exec cp {} artifact/ \;
+      # 7️⃣ 上传 artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: thorvg-windows-bins
-          path: artifact/bin/
-
-      # 9️⃣ Upload GIFs
-      - name: Upload GIFs
-        uses: actions/upload-artifact@v4
-        with:
-          name: lottie-gifs
-          path: artifact/gif/
+          path: artifact/
