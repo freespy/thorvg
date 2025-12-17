@@ -23,21 +23,18 @@ jobs:
             coreutils
 
       - name: Configure (Meson)
-        shell: bash
+        shell: msys2 {0}
         run: |
-          export PATH="/mingw64/bin:$PATH"
-          meson setup build --buildtype=release
+          meson setup build -Dtools=lottie2gif --buildtype=release
 
       - name: Build
-        shell: bash
+        shell: msys2 {0}
         run: |
-          export PATH="/mingw64/bin:$PATH"
           ninja -C build
 
-      - name: Find lottie2gif.exe
-        shell: bash
+      - name: Find and copy lottie2gif.exe
+        shell: msys2 {0}
         run: |
-          export PATH="/mingw64/bin:$PATH"
           exe=$(find build -type f -name "lottie2gif.exe" | head -n 1)
           if [ -z "$exe" ]; then
             echo "lottie2gif.exe not found!"
